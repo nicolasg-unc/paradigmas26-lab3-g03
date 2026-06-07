@@ -1,3 +1,5 @@
+import org.apache.spark.rdd.RDD
+
 object Analyzer {
 
   /**
@@ -6,7 +8,7 @@ object Analyzer {
    * @param posts list of posts to filter
    * @return filtered list of valid posts
    */
-  def filterEmptyPosts(posts: List[Post]): List[Post] = {
+  def filterEmptyPosts(posts: RDD[Post]): RDD[Post] = {
     posts.filter { post =>
       post.title.nonEmpty &&
       post.selftext.nonEmpty &&
@@ -34,12 +36,10 @@ object Analyzer {
    * @param entities list of detected entities
    * @return map from (entityType, entityName) to count
    */
-  def countEntities(entities: List[NamedEntity]): Map[(String, String), Int] = {
-    entities
-      .groupBy(entity => (entity.entityType, entity.text))
-      .view
-      .mapValues(_.size)
-      .toMap
+  def countEntities(entities: RDD[NamedEntity]): Map[(String, String), Int] = {
+    entities.map { entity =>
+      ((entity.entityType, entity.text), 1)
+    }.reduceByKey(_ + _).collectAsMap().toMap
   }
 
   /**
@@ -47,8 +47,8 @@ object Analyzer {
    * @param entities list of detected entities
    * @return map with "total" key and one key per entity type
    */
-  def countByType(entities: List[NamedEntity]): Map[String, Int] = {
-    val byType = entities.groupBy(_.entityType).view.mapValues(_.size).toMap
-    byType + ("total" -> entities.size)
+  def countByType(entities: RDD[NamedEntity]): Map[String, Int] = {
+    val counts = entities.map(_.entityType).countByValue().mapValues(_.toInt)
+    counts.toMap + ("total" -> entities.count().toInt)
   }
 }

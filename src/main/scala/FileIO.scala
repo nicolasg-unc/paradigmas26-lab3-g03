@@ -11,16 +11,31 @@ object FileIO {
    *         returns empty list if file not found
    */
   def readSubscriptions(filePath: String): List[Option[Subscription]] = {
-    implicit val formats: Formats = DefaultFormats
-    val source = Source.fromFile(filePath)
-    val content = source.mkString
-    source.close()
+    try {
+      implicit val formats: Formats = DefaultFormats
+      val source = Source.fromFile(filePath)
+      val content = source.mkString
+      source.close()
 
-    val json = parse(content)
-    val subscriptions = json.extract[List[Map[String, String]]]
+      val json = parse(content)
+      val subscriptions = json.extract[List[Map[String, String]]]
 
-    subscriptions.map { sub =>
-      Some(Subscription(sub("name"), sub("url")))
+      subscriptions.map { sub =>
+        (sub.get("name"), sub.get("url")) match {
+          case (Some(name), Some(url)) => Some(Subscription(name, url))
+          case _ =>
+            println("Warning: Skipping malformed subscription (missing 'name' or 'url' field)")
+            None
+        }
+      }
+    }
+    catch {
+      case e: java.io.FileNotFoundException =>
+        println(s"Error: Could not load $filePath - file not found")
+        sys.exit(1)
+      case e: Exception =>
+        println (s"Error: Could not load $filePath - invalid JSON format")
+        sys.exit(1)
     }
   }
 
@@ -29,11 +44,17 @@ object FileIO {
    * @param url Reddit feed URL
    * @return Option containing JSON as String, None on network error or timeout
    */
-  def downloadFeed(url: String): Option[String] = {
-    val source = Source.fromURL(url)
-    val content = source.mkString
-    source.close()
-    Some(content)
+  def downloadFeed(url: String, subName: String): Option[String] = {
+    try {
+      val source = Source.fromURL(url)
+      val content = source.mkString
+      source.close()
+      Some(content)
+    } catch {
+      case e: Exception =>
+        println(s"Warning: Failed to download from '${subName}' (${url})")
+        None
+    }
   }
 
   /**
