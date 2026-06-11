@@ -1,4 +1,5 @@
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.LongAccumulator
 
 object Analyzer {
 
@@ -8,11 +9,15 @@ object Analyzer {
    * @param posts list of posts to filter
    * @return filtered list of valid posts
    */
-  def filterEmptyPosts(posts: RDD[Post]): RDD[Post] = {
+  def filterEmptyPosts(posts: RDD[Post], discardedAcc: LongAccumulator): RDD[Post] = {
     posts.filter { post =>
-      post.title.nonEmpty &&
-      post.selftext.nonEmpty &&
-      post.selftext.trim.nonEmpty
+      val valid =
+        post.title.nonEmpty &&
+        post.selftext.nonEmpty &&
+        post.selftext.trim.nonEmpty
+
+      if(!valid) discardedAcc.add(1)
+      valid
     }
   }
 
