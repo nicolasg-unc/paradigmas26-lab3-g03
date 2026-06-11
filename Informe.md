@@ -36,6 +36,8 @@ b) La función que se le pasa a reduceByKey debe ser ambos conmutativa y asociat
 
 c) Los workers leen el diccionario luego de que el driver haga un solo broadcast
 
+---
+
 ### Ejercicio 4
 
 a) Los workers no garantizan la ejecución de las transformaciones, pueden ocurrir fallos o reintentos que no tienen por que seguir la lógica del programa. Su única función es reportar información al driver, y por lo tanto, no aseguran nada más. Al usarlos en la toma de decisiones puede modificar valores según la cantidad de vecés que se ejecutó, el reintento de tareas por ejemplo podría volver un programa no determinístico.
@@ -49,3 +51,21 @@ c) La mayor duferencia se ve a la hora de descargar el post, pero esto se debe a
 | Filtrado | 5.499 | 10.079 | 4.580 |
 | Entidades | 20.631 | 35.764 | 15.133 |
 | **Total** | **26.161** | **66.508** | **40.347** |
+
+---
+
+### Ejercicio 5
+
+a) Si no llamáramos a `cache()`, cada acción terminal recomputaría todo el pipeline desde el principio, incluyendo las descargas HTTP. `filteredPosts` se usa en `count()`, `sum()` y el `flatMap` de entidades, por lo que los feeds se descargarían 3 veces.
+
+b) `collect()` trae todos los datos al driver, rompiendo la distribución. Si se continúa el pipeline sobre esos datos, ya no están en un RDD distribuido sino en una lista local en el driver. Todo el trabajo posterior lo haría un solo proceso y se perdería el beneficio de Spark.
+
+c) Llamar a `.cache()` no materializa el RDD inmediatamente, sólo lo marca para persistirlo. El almacenamiento ocurre cuando se ejecuta la primera acción terminal sobre ese RDD. En nuestro caso, `filteredPosts` se materializa en el `count()` y, a partir de ahí, las siguientes acciones leen de memoria, lo que explica por qué la etapa de detección de entidades bajó de 20.631 segundos a 0.494 segundos.
+
+| Etapa | Spark+cache (s) | Spark (s) | Diferencia (s) |
+|---------|---------:|---------------:|---------------:|
+| Descarga | 0.026 | 0.031 | 0.005 |
+| Filtrado | 5.303 | 5.499 | 0.196 |
+| Entidades | 0.494 | 20.631 | 20.137 |
+| **Total** | **5.823** | **26.161** | **20.338** |
+
