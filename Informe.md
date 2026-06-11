@@ -35,3 +35,17 @@ a) reduceByKey es una barrera porque frena toda la operación hasta que cada wor
 b) La función que se le pasa a reduceByKey debe ser ambos conmutativa y asociativa, aparte de serializable y determinista, para que spark pueda realizar reducciones en paralelo y agregar resultados parciales en cualquier orden.
 
 c) Los workers leen el diccionario luego de que el driver haga un solo broadcast
+
+### Ejercicio 4
+
+a) Los workers no garantizan la ejecución de las transformaciones, pueden ocurrir fallos o reintentos que no tienen por que seguir la lógica del programa. Su única función es reportar información al driver, y por lo tanto, no aseguran nada más. Al usarlos en la toma de decisiones puede modificar valores según la cantidad de vecés que se ejecutó, el reintento de tareas por ejemplo podría volver un programa no determinístico.
+
+b) Los valores de los workers están disponibles luego de operaciones terminales, en el caso de este laboratorio son las estapas de descarga, filtrado y análisis de entidades, solo en estos momentos los valores de los workers están garantizados.
+
+c) La mayor duferencia se ve a la hora de descargar el post, pero esto se debe al lazy evaluation que hace Spark a la hora de fetchear los posts, por eso la diferencia en el filtrado no es tan significativa, al igual que en el conteo de entidades, mucho más evidente será la diferencia en la siguiente etapa.
+| Etapa | Spark (s) | Secuencial (s) | Diferencia (s) |
+|---------|---------:|---------------:|---------------:|
+| Descarga | 0.031 | 20.665 | 20.634 |
+| Filtrado | 5.499 | 10.079 | 4.580 |
+| Entidades | 20.631 | 35.764 | 15.133 |
+| **Total** | **26.161** | **66.508** | **40.347** |
