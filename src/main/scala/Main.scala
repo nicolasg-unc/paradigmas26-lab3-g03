@@ -51,7 +51,7 @@ object Main {
     val t1 = System.currentTimeMillis()
 
     // Filter empty posts and count how many were discarded
-    val filteredPosts = Analyzer.filterEmptyPosts(allPosts, postsDiscardedAcc)
+    val filteredPosts = Analyzer.filterEmptyPosts(allPosts, postsDiscardedAcc).cache()
     val filteredCount = filteredPosts.count()
 
     val t2 = System.currentTimeMillis()
@@ -76,6 +76,7 @@ object Main {
     // Check if we have any posts to process
     if (filteredCount == 0) {
       println("Error: No valid posts downloaded after filtering")
+      filteredPosts.unpersist()
       spark.stop()
       return
     }
@@ -85,6 +86,7 @@ object Main {
 
     if (dictionaryOpt.isEmpty) {
       spark.stop()
+      filteredPosts.unpersist()
       return
     }
 
@@ -95,7 +97,7 @@ object Main {
     val allEntities = filteredPosts.flatMap { post =>
       val combinedText = post.title + " " + post.selftext
       Analyzer.detectEntities(combinedText, dictBroadcast.value)
-    }
+    }.cache()
 
     // Count entities
     val entityCounts = Analyzer.countEntities(allEntities)
@@ -118,6 +120,8 @@ object Main {
     println(s"Tiempo etapa de entidades: ${(t3 - t2) / 1000.0} segundos")
     println(s"Tiempo total del pipeline: ${(t3 - t0) / 1000.0} segundos")
 
+    filteredPosts.unpersist()
+    allEntities.unpersist()
     spark.stop()
   }
 }
